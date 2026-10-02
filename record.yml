@@ -1,0 +1,44 @@
+name: record-and-publish
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency: record
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: data
+          path: site
+        continue-on-error: true
+      - name: Record traffic tiles
+        env:
+          TOMTOM_KEY: ${{ secrets.TOMTOM_KEY }}
+          DATA_DIR: site/data
+        run: |
+          mkdir -p site/data
+          python collector.py
+          cp index.html site/
+      - name: Save history (squashed so the repo stays small)
+        run: |
+          cd site
+          rm -rf .git
+          git init -q -b data
+          git config user.name bot
+          git config user.email bot@users.noreply.github.com
+          git add -A
+          git commit -qm "traffic data"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" data
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
