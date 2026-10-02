@@ -45,6 +45,9 @@ def main():
         except Exception as e:
             print("fail", z, x, y, e)
         time.sleep(0.25)                 # stay under the default 5 requests/second
+    if ok == 0:
+        shutil.rmtree(os.path.join(OUT, name), ignore_errors=True)
+        raise SystemExit("No tiles saved - check the TOMTOM_KEY secret and the errors above")
     cutoff = (now - dt.timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%dT%H%M")
     for d in snaps():
         if d < cutoff:
