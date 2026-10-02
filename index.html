@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dhaka Traffic History</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+html,body{height:100%;margin:0;font-family:Roboto,"Segoe UI",Arial,sans-serif;color:#202124}
+#map{position:absolute;inset:0}
+.card{position:absolute;z-index:1000;background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(60,64,67,.3),0 1px 2px rgba(60,64,67,.3)}
+#search{top:12px;left:12px;width:min(380px,calc(100% - 24px));padding:0}
+#search input{width:100%;box-sizing:border-box;border:0;border-radius:8px;padding:14px 16px;font-size:15px;outline:0}
+#info{top:64px;left:12px;width:min(380px,calc(100% - 24px));padding:12px 16px;font-size:14px}
+#info b{font-size:16px}
+.up{color:#188038}.dn{color:#d93025}.mut{color:#5f6368;font-size:12px}
+#time{bottom:24px;left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));padding:12px 16px;box-sizing:border-box}
+#time .r{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#time input[type=range]{flex:1;min-width:140px;accent-color:#1a73e8}
+#time input[type=date]{border:1px solid #dadce0;border-radius:6px;padding:5px 8px;font:inherit}
+button{border:1px solid #dadce0;background:#fff;color:#1a73e8;border-radius:16px;padding:5px 14px;font:inherit;cursor:pointer}
+#clock{font-weight:600;min-width:56px}
+#legend{bottom:24px;left:12px;padding:6px 10px;font-size:12px}
+#legend i{display:block;width:90px;height:6px;border-radius:3px;background:linear-gradient(90deg,#8b1a14,#e5392f,#f59e0b,#1fa84f);margin:3px 0}
+#legend span{display:flex;justify-content:space-between}
+@media(max-width:700px){#legend{display:none}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="search" class="card"><input id="q" list="areas" placeholder="Search area in Dhaka (e.g. Banani)" autocomplete="off"><datalist id="areas"></datalist></div>
+<div id="info" class="card"><span class="mut">Loading…</span></div>
+<div id="legend" class="card"><span><b>Traffic</b></span><i></i><span><span>Slower</span><span>Faster</span></span></div>
+<div id="time" class="card">
+  <div class="r"><input type="date" id="d"><span id="clock"></span><input type="range" id="m" min="0" max="1435" step="5"><button id="now">Now</button></div>
+  <div class="mut" id="snapinfo" style="margin-top:6px"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+var AREAS={"Banani":[23.7937,90.4066],"Gulshan":[23.7925,90.4078],"Mohakhali":[23.7780,90.4005],"Uttara":[23.8759,90.3795],"Mirpur":[23.8042,90.3667],"Mohammadpur":[23.7662,90.3586],"Dhanmondi":[23.7461,90.3742],"Farmgate":[23.7580,90.3897],"Tejgaon":[23.7640,90.3935],"Motijheel":[23.7330,90.4172],"Old Dhaka":[23.7104,90.4074],"Jatrabari":[23.7099,90.4343],"Badda":[23.7806,90.4262],"Bashundhara":[23.8193,90.4526],"Banasree":[23.7634,90.4318],"Malibagh":[23.7497,90.4130],"Shahbag":[23.7387,90.3958],"Airport":[23.8513,90.4087]};
+var BLANK="data:image/gif;base64,R0lGODlhAQABAAAAACw=",TZ="+06:00";
+var map=L.map("map",{zoomControl:true}).setView(AREAS.Banani,14);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"&copy; OpenStreetMap contributors | Traffic: TomTom"}).addTo(map);
+var dl=document.getElementById("areas");Object.keys(AREAS).forEach(function(a){dl.innerHTML+='<option value="'+a+'">'});
+var q=document.getElementById("q");
+q.addEventListener("change",function(){var k=Object.keys(AREAS).find(function(a){return a.toLowerCase()==q.value.trim().toLowerCase()});if(k)map.flyTo(AREAS[k],14)});
+var $=function(i){return document.getElementById(i)},idx=[],layer=null,token=0,cache={};
+function pad(n){return(n<10?"0":"")+n}
+function dhakaNow(){var d=new Date(Date.now()+6*36e5);return{date:d.toISOString().slice(0,10),min:Math.floor((d.getUTCHours()*60+d.getUTCMinutes())/5)*5}}
+function sel(){return Date.parse($("d").value+"T"+pad(Math.floor($("m").value/60))+":"+pad($("m").value%60)+":00"+TZ)}
+function nearest(ms){var b=null,bd=1e18;idx.forEach(function(s){var dd=Math.abs(s.ms-ms);if(dd<bd){bd=dd;b=s}});return bd<=30*6e4?b:null}
+function load(u){return cache[u]||(cache[u]=new Promise(function(r){var i=new Image();i.onload=function(){r(i)};i.onerror=function(){r(null)};i.src=u}))}
+function viewTiles(){var b=map.getBounds(),z=Math.min(13,Math.max(11,Math.round(map.getZoom())));
+ for(;;){var n=Math.pow(2,z),f=function(la,lo){return[Math.floor((lo+180)/360*n),Math.floor((1-Math.asinh(Math.tan(la*Math.PI/180))/Math.PI)/2*n)]};
+  var a=f(b.getNorth(),b.getWest()),c=f(b.getSouth(),b.getEast());
+  if((c[0]-a[0]+1)*(c[1]-a[1]+1)<=16||z<=11){var t=[];for(var x=a[0];x<=c[0];x++)for(var y=a[1];y<=c[1];y++)t.push([z,x,y]);return t}z--}}
+var loadedN=0;
+async function score(name,list){var sum=0,cnt=0;
+ for(var k=0;k<list.length;k++){var im=await load("data/"+name+"/"+list[k].join("/")+".png");if(!im)continue;loadedN++;
+  var c=document.createElement("canvas");c.width=im.width;c.height=im.height;var g=c.getContext("2d");g.drawImage(im,0,0);
+  var d=g.getImageData(0,0,c.width,c.height).data;
+  for(var i=0;i<d.length;i+=4){if(d[i+3]<128)continue;var r=d[i],gg=d[i+1],bb=d[i+2],w;
+   if(gg>r*1.1&&gg>bb)w=0;else if(r>180&&gg>110)w=.4;else if(r>150&&gg<90)w=.8;else if(r>60&&gg<60)w=1;else continue;sum+=w;cnt++}}
+ return cnt?sum/cnt*100:null}
+async function update(){
+ var my=++token,ms=sel(),s=nearest(ms),h=Math.floor($("m").value/60),m=$("m").value%60;
+ $("clock").textContent=pad(h)+":"+pad(m);
+ if(layer){map.removeLayer(layer);layer=null}
+ if(!s){$("snapinfo").textContent=idx.length?"No recording near this time.":"No recordings yet. Run collector.py first.";$("info").innerHTML="<b>No data for this time</b><div class='mut'>Recordings exist for "+idx.length+" time points.</div>";return}
+ layer=L.tileLayer("data/"+s.name+"/{z}/{x}/{y}.png",{minNativeZoom:11,maxNativeZoom:13,maxZoom:18,opacity:.95,errorTileUrl:BLANK}).addTo(map);
+ $("snapinfo").textContent="Showing recording from "+s.name.replace("T"," ").replace(/(\d\d)(\d\d)$/,"$1:$2")+" (Dhaka time)";
+ var list=viewTiles();loadedN=0;var cur=await score(s.name,list);var ld=loadedN;if(my!=token)return;
+ var vals=[];for(var k=1;k<=7;k++){var p=nearest(ms-k*864e5);if(p){var v=await score(p.name,list);if(my!=token)return;if(v!==null)vals.push(v)}}
+ var html="<b>"+(cur===null?(ld?"No traffic colors in this view (zoom out or move the map)":"This recording has no saved tiles. Check the GitHub Actions log and the TOMTOM_KEY secret."):"Congestion index "+cur.toFixed(0)+"/100")+"</b>";
+ if(cur!==null&&vals.length){var avg=vals.reduce(function(a,b){return a+b})/vals.length,df=cur-avg;
+  html+="<div class='"+(df>3?"dn":df<-3?"up":"")+"'>"+(Math.abs(df)<3?"About the same as":Math.abs(df).toFixed(0)+" pts "+(df>0?"heavier":"lighter")+" than")+" the last "+vals.length+"-day average ("+avg.toFixed(0)+")</div>"}
+ else if(cur!==null)html+="<div class='mut'>7-day comparison appears after a week of recordings.</div>";
+ html+="<div class='mut'>Measured for the roads visible on screen. 0 = free flow, 100 = standstill.</div>";
+ $("info").innerHTML=html}
+var tm;function soon(){clearTimeout(tm);tm=setTimeout(update,250)}
+$("d").addEventListener("input",soon);$("m").addEventListener("input",soon);map.on("moveend",soon);
+$("now").onclick=function(){var n=dhakaNow();$("d").value=n.date;$("m").value=n.min;update()};
+var n0=dhakaNow();$("d").value=n0.date;$("m").value=n0.min;
+fetch("data/index.json").then(function(r){return r.json()}).catch(function(){return[]}).then(function(a){
+ idx=a.map(function(n){return{name:n,ms:Date.parse(n.slice(0,10)+"T"+n.slice(11,13)+":"+n.slice(13,15)+":00"+TZ)}});
+ if(idx.length){var l=idx[idx.length-1];$("d").min=idx[0].name.slice(0,10)}
+ update()});
+</script>
+</body>
+</html>
