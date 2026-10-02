@@ -54,8 +54,9 @@ function viewTiles(){var b=map.getBounds(),z=Math.min(13,Math.max(11,Math.round(
  for(;;){var n=Math.pow(2,z),f=function(la,lo){return[Math.floor((lo+180)/360*n),Math.floor((1-Math.asinh(Math.tan(la*Math.PI/180))/Math.PI)/2*n)]};
   var a=f(b.getNorth(),b.getWest()),c=f(b.getSouth(),b.getEast());
   if((c[0]-a[0]+1)*(c[1]-a[1]+1)<=16||z<=11){var t=[];for(var x=a[0];x<=c[0];x++)for(var y=a[1];y<=c[1];y++)t.push([z,x,y]);return t}z--}}
+var loadedN=0;
 async function score(name,list){var sum=0,cnt=0;
- for(var k=0;k<list.length;k++){var im=await load("data/"+name+"/"+list[k].join("/")+".png");if(!im)continue;
+ for(var k=0;k<list.length;k++){var im=await load("data/"+name+"/"+list[k].join("/")+".png");if(!im)continue;loadedN++;
   var c=document.createElement("canvas");c.width=im.width;c.height=im.height;var g=c.getContext("2d");g.drawImage(im,0,0);
   var d=g.getImageData(0,0,c.width,c.height).data;
   for(var i=0;i<d.length;i+=4){if(d[i+3]<128)continue;var r=d[i],gg=d[i+1],bb=d[i+2],w;
@@ -68,9 +69,9 @@ async function update(){
  if(!s){$("snapinfo").textContent=idx.length?"No recording near this time.":"No recordings yet. Run collector.py first.";$("info").innerHTML="<b>No data for this time</b><div class='mut'>Recordings exist for "+idx.length+" time points.</div>";return}
  layer=L.tileLayer("data/"+s.name+"/{z}/{x}/{y}.png",{minNativeZoom:11,maxNativeZoom:13,maxZoom:18,opacity:.95,errorTileUrl:BLANK}).addTo(map);
  $("snapinfo").textContent="Showing recording from "+s.name.replace("T"," ").replace(/(\d\d)(\d\d)$/,"$1:$2")+" (Dhaka time)";
- var list=viewTiles(),cur=await score(s.name,list);if(my!=token)return;
+ var list=viewTiles();loadedN=0;var cur=await score(s.name,list);var ld=loadedN;if(my!=token)return;
  var vals=[];for(var k=1;k<=7;k++){var p=nearest(ms-k*864e5);if(p){var v=await score(p.name,list);if(my!=token)return;if(v!==null)vals.push(v)}}
- var html="<b>"+(cur===null?"No traffic data in view":"Congestion index "+cur.toFixed(0)+"/100")+"</b>";
+ var html="<b>"+(cur===null?(ld?"No traffic colors in this view (zoom out or move the map)":"This recording has no saved tiles. Check the GitHub Actions log and the TOMTOM_KEY secret."):"Congestion index "+cur.toFixed(0)+"/100")+"</b>";
  if(cur!==null&&vals.length){var avg=vals.reduce(function(a,b){return a+b})/vals.length,df=cur-avg;
   html+="<div class='"+(df>3?"dn":df<-3?"up":"")+"'>"+(Math.abs(df)<3?"About the same as":Math.abs(df).toFixed(0)+" pts "+(df>0?"heavier":"lighter")+" than")+" the last "+vals.length+"-day average ("+avg.toFixed(0)+")</div>"}
  else if(cur!==null)html+="<div class='mut'>7-day comparison appears after a week of recordings.</div>";
