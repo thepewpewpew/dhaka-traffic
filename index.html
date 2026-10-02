@@ -40,7 +40,7 @@ button{border:1px solid #dadce0;background:#fff;color:#1a73e8;border-radius:16px
 var AREAS={"Banani":[23.7937,90.4066],"Gulshan":[23.7925,90.4078],"Mohakhali":[23.7780,90.4005],"Uttara":[23.8759,90.3795],"Mirpur":[23.8042,90.3667],"Mohammadpur":[23.7662,90.3586],"Dhanmondi":[23.7461,90.3742],"Farmgate":[23.7580,90.3897],"Tejgaon":[23.7640,90.3935],"Motijheel":[23.7330,90.4172],"Old Dhaka":[23.7104,90.4074],"Jatrabari":[23.7099,90.4343],"Badda":[23.7806,90.4262],"Bashundhara":[23.8193,90.4526],"Banasree":[23.7634,90.4318],"Malibagh":[23.7497,90.4130],"Shahbag":[23.7387,90.3958],"Airport":[23.8513,90.4087]};
 var BLANK="data:image/gif;base64,R0lGODlhAQABAAAAACw=",TZ="+06:00";
 var map=L.map("map",{zoomControl:true}).setView(AREAS.Banani,14);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{maxZoom:18,attribution:"&copy; OpenStreetMap, &copy; CARTO | Traffic: TomTom"}).addTo(map);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"&copy; OpenStreetMap contributors | Traffic: TomTom"}).addTo(map);
 var dl=document.getElementById("areas");Object.keys(AREAS).forEach(function(a){dl.innerHTML+='<option value="'+a+'">'});
 var q=document.getElementById("q");
 q.addEventListener("change",function(){var k=Object.keys(AREAS).find(function(a){return a.toLowerCase()==q.value.trim().toLowerCase()});if(k)map.flyTo(AREAS[k],14)});
